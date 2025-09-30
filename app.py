@@ -51,10 +51,20 @@ def clean_messages(name):
 
 def choose_respondent():
     print("Choosing respondent... ", end="")
+    participants = ', '.join(SYSTEM_PROMPTS.keys())
+    descriptions = '\n- '.join(character_descriptions)
+    system_prompt = (
+        f"Your job is to look at this group conversation between {participants} and a User and to decide who should speak next.\n"
+        f"Here are some descriptions of each of them: \n- {descriptions}\n"
+        "- User: A human who created this chat room.\n\n"
+        "Answer with only one word: the name of the person to speak next. This could be the User or any other character in the list. Be sure to give the User opportunities to participate. Do not add any extra commentary. If you are unsure, it is ok to pick one of the participants at random to keep the conversation flowing.\n"
+        "Respond with only the name."
+    )
+
     message = client.messages.create(
         model="claude-3-haiku-20240307",
         max_tokens=48,
-        system=f"Your job is to look at this group conversation between {', '.join(SYSTEM_PROMPTS.keys())} and a User and to decide who should speak next.\nHere are some descriptions of each of them: \n- {'\n- '.join(character_descriptions)}\n- User: A human who created this chat room.\n\nAnswer with only one word: the name of the person to speak next. This could be the User or any other character in the list. Be sure to give the User opportunities to participate. Do not any any extra commentary. If you are unsure, it is ok to pick one of the participants at random to keep the conversation flowing.\nRespond with only the name.",
+        system=system_prompt,
         messages=clean_messages("referree"),
     )
     print(message.content[0].text)
