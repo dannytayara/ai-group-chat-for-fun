@@ -1,8 +1,10 @@
+import json
 import re
 import uuid
 
 import streamlit as st
 import anthropic
+import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="Alice, Bob, and Dizzy's Chatroom",
@@ -215,6 +217,45 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)
     font-size: 1.1rem;
     color: var(--sidebar-muted);
 }
+.chat-context-menu {
+    position: fixed;
+    display: none;
+    background: #ffffff;
+    border: 1px solid var(--sidebar-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+    padding: 6px 0;
+    min-width: 180px;
+    z-index: 10000;
+}
+.chat-context-menu button {
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    color: var(--sidebar-text);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+}
+.chat-context-menu button:hover {
+    background: #f3f3f6;
+}
+.chat-context-menu button.rename {
+    font-weight: 500;
+}
+.chat-context-menu button.rename::before {
+    content: '';
+    width: 18px;
+    height: 18px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="%230c0c10" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.129-1.897l8.933-8.931z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125L16.875 4.5"/><path stroke-linecap="round" stroke-linejoin="round" d="M18 14v4.75A2.25 2.25 0 0115.75 21h-9.5A2.25 2.25 0 014 18.75v-9.5A2.25 2.25 0 016.25 7H11"/></svg>');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
 </style>
 """
 
@@ -231,9 +272,17 @@ def init_chat_state():
             {
                 "id": str(uuid.uuid4()),
                 "title": "New chat",
+                "raw_title": "New chat",
+                "custom_title": False,
                 "messages": [],
             }
         ]
+    else:
+        for chat in st.session_state.chats:
+            chat.setdefault("messages", [])
+            chat.setdefault("title", "New chat")
+            chat.setdefault("raw_title", chat.get("title", "New chat"))
+            chat.setdefault("custom_title", False)
     if "current_chat_id" not in st.session_state:
         st.session_state.current_chat_id = st.session_state.chats[0]["id"]
 
@@ -258,7 +307,6 @@ def get_current_chat_messages():
 
 def set_current_chat(chat_id: str) -> None:
     st.session_state.current_chat_id = chat_id
-    st.session_state["chat_list_radio"] = chat_id
 
 
 def truncate_title(text: str, max_length: int = 30) -> str:
@@ -271,11 +319,15 @@ def truncate_title(text: str, max_length: int = 30) -> str:
 
 
 def update_chat_title(chat: dict) -> None:
+    if chat.get("custom_title"):
+        return
     for message in chat.get("messages", []):
         if message["role"] == "user" and message.get("content"):
-            chat["title"] = truncate_title(message["content"])
+            chat["raw_title"] = message["content"].strip()
+            chat["title"] = truncate_title(chat["raw_title"])
             return
     chat["title"] = "New chat"
+    chat["raw_title"] = "New chat"
 
 
 def move_chat_to_top(chat_id: str) -> None:
@@ -289,17 +341,40 @@ def create_new_chat() -> None:
     new_chat = {
         "id": str(uuid.uuid4()),
         "title": "New chat",
+        "raw_title": "New chat",
+        "custom_title": False,
         "messages": [],
     }
     st.session_state.chats.insert(0, new_chat)
     set_current_chat(new_chat["id"])
+    st.session_state["chat_list_radio"] = new_chat["id"]
 
+
+def find_chat(chat_id: str):
+    for chat in st.session_state.chats:
+        if chat["id"] == chat_id:
+            return chat
+    return None
+
+
+def rename_chat(chat_id: str, new_title: str) -> None:
+    chat = find_chat(chat_id)
+    if not chat:
+        return
+    cleaned = new_title.strip()
+    if not cleaned:
+        chat["custom_title"] = False
+        update_chat_title(chat)
+        return
+    chat["raw_title"] = cleaned
+    chat["title"] = truncate_title(cleaned)
+    chat["custom_title"] = True
 
 
 CHATGPT_LOGO = """
-<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#0c0c10" stroke-width="1.2">
-  <path d="M12.03 2.25c1.76 0 3.42.69 4.67 1.94a6.58 6.58 0 0 1 1.7 2.93 5.2 5.2 0 0 1 3.54 4.96c0 .92-.23 1.83-.68 2.64a5.19 5.19 0 0 1-1.72 1.83 6.59 6.59 0 0 1-4.65 4.88 6.59 6.59 0 0 1-8.2-4.72 5.2 5.2 0 0 1-3.54-4.96c0-.92.23-1.83.68-2.64a5.22 5.22 0 0 1 1.72-1.83 6.59 6.59 0 0 1 4.65-4.88 6.56 6.56 0 0 1 2.83-.65Z" opacity="0.12" fill="#0c0c10"/>
-  <path d="M11.99 4.4a4.53 4.53 0 0 1 3.21 1.33 4.51 4.51 0 0 1 1.1 1.83 3.6 3.6 0 0 1 2.52 3.44c0 .6-.15 1.2-.49 1.72-.33.52-.78.91-1.28 1.2a4.54 4.54 0 0 1-6.54 3.27 4.53 4.53 0 0 1-3.21-1.33 4.51 4.51 0 0 1-1.1-1.83 3.6 3.6 0 0 1-2.52-3.44c0-.6.15-1.2.49-1.72.33-.52.78-.91 1.28-1.2a4.54 4.54 0 0 1 6.54-3.27Zm2.26 3.55-2.82-1.44a.53.53 0 0 0-.77.47v2.9L8.62 8.32a.53.53 0 0 0-.78.46v2.88l-.5-.25a.53.53 0 0 0-.48.95l2.81 1.44a.53.53 0 0 0 .78-.46v-2.9l2.05 1.02v2.88a.53.53 0 0 0 .78.46l2.81-1.44a.53.53 0 0 0-.47-.95l-.5.26V8.41a.53.53 0 0 0-.78-.46Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="24" height="24" preserveAspectRatio="xMidYMid meet" style="width:24px;height:24px;max-width:24px;max-height:24px;display:block;">
+    <!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+    <path d="M341.8 72.6C329.5 61.2 310.5 61.2 298.3 72.6L74.3 280.6C64.7 289.6 61.5 303.5 66.3 315.7C71.1 327.9 82.8 336 96 336L112 336L112 512C112 547.3 140.7 576 176 576L464 576C499.3 576 528 547.3 528 512L528 336L544 336C557.2 336 569 327.9 573.8 315.7C578.6 303.5 575.4 289.5 565.8 280.6L341.8 72.6zM304 384L336 384C362.5 384 384 405.5 384 432L384 528L256 528L256 432C256 405.5 277.5 384 304 384z"/>
 </svg>
 """
 
@@ -311,17 +386,12 @@ COLLAPSE_ICON = """
 """
 
 CHATS_HEADER_HTML = """
-<div class="sidebar-subheader">Chats <span class="caret">&#9662;</span></div>
+<div class="sidebar-subheader">Chats</div>
 """
 
 PROFILE_HTML = """
 <div class="sidebar-profile">
-  <div class="avatar">DA</div>
-  <div class="profile-copy">
-    <span class="profile-name">Danny Tayara</span>
-    <span class="profile-plan">Pro</span>
   </div>
-  <div class="profile-caret">&#8250;</div>
 </div>
 """
 def render_sidebar() -> None:
@@ -358,6 +428,100 @@ def render_sidebar() -> None:
         set_current_chat(selected_chat_id)
 
     sidebar.markdown(PROFILE_HTML, unsafe_allow_html=True)
+
+    payload = {
+        "chatIds": chat_ids,
+        "chatTitles": [chat.get("raw_title", chat["title"]) for chat in st.session_state.chats],
+    }
+
+    rename_event = components.html(
+        f"""
+        <script>
+        const payload = {json.dumps(payload)};
+        const doc = window.parent.document;
+        const labels = doc.querySelectorAll('section[data-testid="stSidebar"] div[role="radiogroup"] label');
+        const menuId = 'chat-context-menu';
+
+        function ensureMenu() {{
+            let menu = doc.getElementById(menuId);
+            if (!menu) {{
+                menu = doc.createElement('div');
+                menu.id = menuId;
+                menu.className = 'chat-context-menu';
+                menu.innerHTML = '<button type="button" class="rename" data-action="rename">Rename</button>';
+                doc.body.appendChild(menu);
+            }}
+            return menu;
+        }}
+
+        const menu = ensureMenu();
+
+        function hideMenu() {{
+            menu.style.display = 'none';
+        }}
+
+        if (!window.parent.__chatMenuGlobalListeners) {{
+            doc.addEventListener('click', hideMenu);
+            doc.addEventListener('contextmenu', (event) => {{
+                if (!event.target.closest('#' + menuId)) {{
+                    hideMenu();
+                }}
+            }});
+            doc.addEventListener('scroll', hideMenu, true);
+            window.parent.__chatMenuGlobalListeners = true;
+        }}
+
+        labels.forEach((label, index) => {{
+            const chatId = payload.chatIds[index];
+            if (!chatId) return;
+            label.dataset.chatId = chatId;
+            label.dataset.chatTitle = payload.chatTitles[index] || '';
+            if (label.dataset.contextmenuBound === 'true') return;
+            label.dataset.contextmenuBound = 'true';
+            label.addEventListener('contextmenu', (event) => {{
+                event.preventDefault();
+                menu.style.display = 'block';
+                menu.style.top = `${{event.clientY}}px`;
+                menu.style.left = `${{event.clientX}}px`;
+                menu.dataset.chatId = chatId;
+                menu.dataset.chatTitle = label.dataset.chatTitle || '';
+            }});
+        }});
+
+        if (!menu.dataset.bound) {{
+            menu.addEventListener('click', (event) => {{
+                const actionButton = event.target.closest('button[data-action]');
+                if (!actionButton) return;
+                const action = actionButton.dataset.action;
+                hideMenu();
+                if (action === 'rename') {{
+                    const chatId = menu.dataset.chatId;
+                    const currentTitle = menu.dataset.chatTitle || '';
+                    const newTitle = window.prompt('Rename chat', currentTitle);
+                    if (newTitle !== null) {{
+                        const payload = {{ action: 'rename', chatId, title: newTitle }};
+                        window.parent.postMessage({{ type: 'streamlit:setComponentValue', value: JSON.stringify(payload) }}, '*');
+                    }}
+                }}
+            }});
+            menu.dataset.bound = 'true';
+        }}
+        </script>
+        """,
+        height=0,
+    )
+
+    if isinstance(rename_event, str) and rename_event:
+        try:
+            event_payload = json.loads(rename_event)
+        except json.JSONDecodeError:
+            event_payload = {}
+        if event_payload.get("action") == "rename":
+            rename_chat(event_payload.get("chatId", ""), event_payload.get("title", ""))
+            if hasattr(st, "rerun"):
+                st.rerun()
+            else:
+                st.experimental_rerun()
 CHARACTERS = [
     {
         "name": "Alice",
