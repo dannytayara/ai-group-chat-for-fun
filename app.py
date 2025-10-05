@@ -181,6 +181,50 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:hover::after,
 section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)::after {
     opacity: 1;
 }
+/* icons that appear on the right side of each chat row when hovered */
+section[data-testid="stSidebar"] div[role="radiogroup"] label {
+    position: relative; /* ensure absolutely positioned icons are relative to the label */
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label .chat-row-icons {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label:hover .chat-row-icons {
+    opacity: 1;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label .chat-row-icons button {
+    background: none;
+    border: none;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--sidebar-muted);
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label .chat-row-icons button:hover {
+    background: #ececf1;
+    color: var(--sidebar-text);
+}
+/* make sidebar buttons more compact so icon buttons don't overlap when narrow */
+section[data-testid="stSidebar"] .stButton>button {
+    padding: 6px 8px;
+    min-width: 34px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
 .sidebar-profile {
     display: flex;
     align-items: center;
@@ -417,6 +461,34 @@ def rename_chat(chat_id: str, new_title: str) -> None:
     save_chats()
 
 
+def delete_chat(chat_id: str) -> None:
+    """Delete a chat by id, ensure at least one remains, and persist."""
+    idx = None
+    for i, chat in enumerate(st.session_state.chats):
+        if chat["id"] == chat_id:
+            idx = i
+            break
+    if idx is None:
+        return
+    st.session_state.chats.pop(idx)
+    if not st.session_state.chats:
+        # create a fresh chat if we removed the last one
+        st.session_state.chats = [
+            {
+                "id": str(uuid.uuid4()),
+                "title": "New chat",
+                "raw_title": "New chat",
+                "custom_title": False,
+                "messages": [],
+            }
+        ]
+    # adjust current selection
+    if st.session_state.get("current_chat_id") == chat_id:
+        st.session_state.current_chat_id = st.session_state.chats[0]["id"]
+        st.session_state.chat_list_radio = st.session_state.current_chat_id
+    save_chats()
+
+
 CHATGPT_LOGO = """
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="24" height="24" preserveAspectRatio="xMidYMid meet" style="width:24px;height:24px;max-width:24px;max-height:24px;display:block;">
     <!--!Font Awesome Free v7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
@@ -457,16 +529,69 @@ def render_sidebar() -> None:
 
     chat_labels = {chat["id"]: chat["title"] for chat in st.session_state.chats}
 
-    selected_chat_id = sidebar.radio(
-        "Chats",
-        chat_ids,
-        label_visibility="collapsed",
-        key="chat_list_radio",
-        format_func=lambda chat_id: chat_labels.get(chat_id, "New chat"),
-    )
+    # Render manual chat list with server-side controls (reliable across browsers)
+    for chat in st.session_state.chats:
+        chat_id = chat["id"]
+        title = chat.get("title", "New chat")
+        # three columns: title/select, edit, delete
+        c0, c1, c2 = sidebar.columns([6, 1, 1])
+        if c0.button(title, key=f"select_{chat_id}", use_container_width=True):
+            set_current_chat(chat_id)
+            st.session_state.chat_list_radio = chat_id
+        # edit (pencil)
+        if c1.button("✏️", key=f"edit_{chat_id}"):
+            st.session_state["editing_chat_id"] = chat_id
+            st.session_state["rename_input"] = chat.get("raw_title", title)
+        # delete (trash)
+        if c2.button("🗑️", key=f"del_{chat_id}"):
+            st.session_state["deleting_chat_id"] = chat_id
 
-    if selected_chat_id != st.session_state.current_chat_id:
-        set_current_chat(selected_chat_id)
+    # If user chose to rename a chat, show an inline rename form
+    if st.session_state.get("editing_chat_id"):
+        target = st.session_state.get("editing_chat_id")
+        target_chat = find_chat(target)
+        if target_chat:
+            st.sidebar.markdown("---")
+            st.sidebar.markdown(f"**Rename chat:** {target_chat.get('title','')} ")
+            new_title = st.sidebar.text_input("New title", value=st.session_state.get("rename_input", ""), key="rename_text")
+            if st.sidebar.button("Save", key="save_rename"):
+                rename_chat(target, new_title)
+                st.session_state.pop("editing_chat_id", None)
+                st.session_state.pop("rename_input", None)
+                save_chats()
+                if hasattr(st, "rerun"):
+                    st.rerun()
+                else:
+                    st.experimental_rerun()
+            if st.sidebar.button("Cancel", key="cancel_rename"):
+                st.session_state.pop("editing_chat_id", None)
+                st.session_state.pop("rename_input", None)
+                if hasattr(st, "rerun"):
+                    st.rerun()
+                else:
+                    st.experimental_rerun()
+
+    # If user initiated deletion, show a confirmation UI
+    if st.session_state.get("deleting_chat_id"):
+        target = st.session_state.get("deleting_chat_id")
+        target_chat = find_chat(target)
+        if target_chat:
+            st.sidebar.markdown("---")
+            st.sidebar.warning(f"Delete chat '{target_chat.get('title','')}'? This cannot be undone.")
+            if st.sidebar.button("Confirm delete", key="confirm_delete"):
+                delete_chat(target)
+                st.session_state.pop("deleting_chat_id", None)
+                save_chats()
+                if hasattr(st, "rerun"):
+                    st.rerun()
+                else:
+                    st.experimental_rerun()
+            if st.sidebar.button("Cancel", key="cancel_delete"):
+                st.session_state.pop("deleting_chat_id", None)
+                if hasattr(st, "rerun"):
+                    st.rerun()
+                else:
+                    st.experimental_rerun()
 
     sidebar.markdown(PROFILE_HTML, unsafe_allow_html=True)
 
@@ -475,80 +600,67 @@ def render_sidebar() -> None:
         "chatTitles": [chat.get("raw_title", chat["title"]) for chat in st.session_state.chats],
     }
 
+    payload_json = json.dumps(payload)
     rename_event = components.html(
-        f"""
+        """
         <script>
-        const payload = {json.dumps(payload)};
+        const payload = PAYLOAD_JSON;
         const doc = window.parent.document;
         const labels = doc.querySelectorAll('section[data-testid="stSidebar"] div[role="radiogroup"] label');
-        const menuId = 'chat-context-menu';
 
-        function ensureMenu() {{
-            let menu = doc.getElementById(menuId);
-            if (!menu) {{
-                menu = doc.createElement('div');
-                menu.id = menuId;
-                menu.className = 'chat-context-menu';
-                menu.innerHTML = '<button type="button" class="rename" data-action="rename">Rename</button>';
-                doc.body.appendChild(menu);
-            }}
-            return menu;
-        }}
+        function makeIconButton(svgPath, title) {
+            const btn = doc.createElement('button');
+            btn.type = 'button';
+            btn.title = title;
+            btn.className = 'chat-row-action';
+            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="${svgPath}"/></svg>`;
+            return btn;
+        }
 
-        const menu = ensureMenu();
-
-        function hideMenu() {{
-            menu.style.display = 'none';
-        }}
-
-        if (!window.parent.__chatMenuGlobalListeners) {{
-            doc.addEventListener('click', hideMenu);
-            doc.addEventListener('contextmenu', (event) => {{
-                if (!event.target.closest('#' + menuId)) {{
-                    hideMenu();
-                }}
-            }});
-            doc.addEventListener('scroll', hideMenu, true);
-            window.parent.__chatMenuGlobalListeners = true;
-        }}
-
-        labels.forEach((label, index) => {{
+        labels.forEach((label, index) => {
             const chatId = payload.chatIds[index];
             if (!chatId) return;
             label.dataset.chatId = chatId;
             label.dataset.chatTitle = payload.chatTitles[index] || '';
-            if (label.dataset.contextmenuBound === 'true') return;
-            label.dataset.contextmenuBound = 'true';
-            label.addEventListener('contextmenu', (event) => {{
-                event.preventDefault();
-                menu.style.display = 'block';
-                menu.style.top = `${{event.clientY}}px`;
-                menu.style.left = `${{event.clientX}}px`;
-                menu.dataset.chatId = chatId;
-                menu.dataset.chatTitle = label.dataset.chatTitle || '';
-            }});
-        }});
+            // don't inject twice
+            if (label.querySelector('.chat-row-icons')) return;
 
-        if (!menu.dataset.bound) {{
-            menu.addEventListener('click', (event) => {{
-                const actionButton = event.target.closest('button[data-action]');
-                if (!actionButton) return;
-                const action = actionButton.dataset.action;
-                hideMenu();
-                if (action === 'rename') {{
-                    const chatId = menu.dataset.chatId;
-                    const currentTitle = menu.dataset.chatTitle || '';
-                    const newTitle = window.prompt('Rename chat', currentTitle);
-                    if (newTitle !== null) {{
-                        const payload = {{ action: 'rename', chatId, title: newTitle }};
-                        window.parent.postMessage({{ type: 'streamlit:setComponentValue', value: JSON.stringify(payload) }}, '*');
-                    }}
-                }}
-            }});
-            menu.dataset.bound = 'true';
-        }}
+            const icons = doc.createElement('div');
+            icons.className = 'chat-row-icons';
+
+            // pencil (rename) svg path (simple pencil)
+            const pencilPath = 'M3 21v-3.75L17.81 2.44a2 2 0 0 1 2.83 0l0 0a2 2 0 0 1 0 2.83L5.83 20.06 3 21z M14.5 6.5l3 3';
+            const editBtn = makeIconButton(pencilPath, 'Rename chat');
+            editBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const currentTitle = label.dataset.chatTitle || '';
+                const newTitle = window.prompt('Rename chat', currentTitle);
+                if (newTitle !== null) {
+                    const payloadObj = { action: 'rename', chatId, title: newTitle };
+                    window.parent.postMessage({ type: 'streamlit:setComponentValue', value: JSON.stringify(payloadObj) }, '*');
+                }
+            });
+            icons.appendChild(editBtn);
+
+            // trash svg path (simple trash)
+            const trashPath = 'M3 6h18M8 6v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6M10 11v6M14 11v6M9 6l1-2h4l1 2';
+            const delBtn = makeIconButton(trashPath, 'Delete chat');
+            delBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const title = label.dataset.chatTitle || '';
+                const ok = window.confirm(`Delete chat "${title}"? This cannot be undone.`);
+                if (ok) {
+                    const payloadObj = { action: 'delete', chatId };
+                    window.parent.postMessage({ type: 'streamlit:setComponentValue', value: JSON.stringify(payloadObj) }, '*');
+                }
+            });
+            icons.appendChild(delBtn);
+
+            label.appendChild(icons);
+        });
+        // no explicit return value; Streamlit will return null/empty
         </script>
-        """,
+        """.replace("PAYLOAD_JSON", payload_json),
         height=0,
     )
 
