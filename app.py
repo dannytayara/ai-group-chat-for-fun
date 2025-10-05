@@ -378,12 +378,7 @@ CHATGPT_LOGO = """
 </svg>
 """
 
-COLLAPSE_ICON = """
-<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" stroke="#0c0c10" stroke-width="1.2" fill="none">
-  <rect x="3" y="4" width="6" height="12" rx="1.2"/>
-  <rect x="11" y="4" width="6" height="12" rx="1.2"/>
-</svg>
-"""
+# COLLAPSE_ICON removed — sidebar uses only the logo now
 
 CHATS_HEADER_HTML = """
 <div class="sidebar-subheader">Chats</div>
@@ -397,7 +392,7 @@ PROFILE_HTML = """
 def render_sidebar() -> None:
     sidebar = st.sidebar
     sidebar.markdown(
-        f"<div class='sidebar-top-row'><div class='icon icon-logo'>{CHATGPT_LOGO}</div><div class='icon icon-collapse'>{COLLAPSE_ICON}</div></div>",
+        f"<div class='sidebar-top-row'><div class='icon icon-logo'>{CHATGPT_LOGO}</div></div>",
         unsafe_allow_html=True,
     )
 
