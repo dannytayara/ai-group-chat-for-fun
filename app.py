@@ -1,6 +1,8 @@
 import json
 import re
 import uuid
+import os
+from pathlib import Path
 
 import streamlit as st
 import anthropic
@@ -265,18 +267,56 @@ except AttributeError:
     st.markdown(SIDEBAR_CSS, unsafe_allow_html=True)
 
 
+# where to persist chats for this local user
+CHATS_FILE = Path(os.path.expanduser("~")) / ".ai_group_chat_chats.json"
+
+
+def load_chats():
+    """Load chats from disk. Returns a list of chat dicts or None on failure."""
+    try:
+        if not CHATS_FILE.exists():
+            return None
+        with CHATS_FILE.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                return data
+    except Exception:
+        # If the file is malformed or unreadable, ignore and start fresh
+        return None
+    return None
+
+
+def save_chats():
+    """Save the current st.session_state.chats to disk. Non-fatal on errors."""
+    try:
+        CHATS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with CHATS_FILE.open("w", encoding="utf-8") as f:
+            json.dump(st.session_state.get("chats", []), f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        # Don't crash the app if saving fails; surface a warning in the UI when possible
+        try:
+            st.warning("Could not save chats to disk: %s" % str(e))
+        except Exception:
+            pass
+
+
 # --- Initialize session state ---
 def init_chat_state():
+    # Try to load persisted chats first
     if "chats" not in st.session_state:
-        st.session_state.chats = [
-            {
-                "id": str(uuid.uuid4()),
-                "title": "New chat",
-                "raw_title": "New chat",
-                "custom_title": False,
-                "messages": [],
-            }
-        ]
+        saved = load_chats()
+        if saved:
+            st.session_state.chats = saved
+        else:
+            st.session_state.chats = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "title": "New chat",
+                    "raw_title": "New chat",
+                    "custom_title": False,
+                    "messages": [],
+                }
+            ]
     else:
         for chat in st.session_state.chats:
             chat.setdefault("messages", [])
@@ -285,6 +325,8 @@ def init_chat_state():
             chat.setdefault("custom_title", False)
     if "current_chat_id" not in st.session_state:
         st.session_state.current_chat_id = st.session_state.chats[0]["id"]
+    # Ensure persisted state is written back (helps upgrade/clean malformed data)
+    save_chats()
 
 
 init_chat_state()
@@ -334,6 +376,7 @@ def move_chat_to_top(chat_id: str) -> None:
     for index, chat in enumerate(st.session_state.chats):
         if chat["id"] == chat_id:
             st.session_state.chats.insert(0, st.session_state.chats.pop(index))
+            save_chats()
             break
 
 
@@ -348,6 +391,7 @@ def create_new_chat() -> None:
     st.session_state.chats.insert(0, new_chat)
     set_current_chat(new_chat["id"])
     st.session_state["chat_list_radio"] = new_chat["id"]
+    save_chats()
 
 
 def find_chat(chat_id: str):
@@ -365,10 +409,12 @@ def rename_chat(chat_id: str, new_title: str) -> None:
     if not cleaned:
         chat["custom_title"] = False
         update_chat_title(chat)
+        save_chats()
         return
     chat["raw_title"] = cleaned
     chat["title"] = truncate_title(cleaned)
     chat["custom_title"] = True
+    save_chats()
 
 
 CHATGPT_LOGO = """
@@ -609,6 +655,8 @@ def do_new_turn():
 
     # Persist responses so they display on the next render
     get_current_chat_messages().extend(responses)
+    # Persist assistant responses
+    save_chats()
 
     # Trigger a single rerun to refresh the UI once
     if hasattr(st, "rerun"):
@@ -633,6 +681,8 @@ if prompt := st.chat_input("Enter text here"):
     chat_messages.append({"role": "user", "content": prompt})
     update_chat_title(chat)
     move_chat_to_top(chat["id"])
+    # Persist the new user message and ordering
+    save_chats()
     with st.chat_message("user"):
         st.markdown(prompt)
 
