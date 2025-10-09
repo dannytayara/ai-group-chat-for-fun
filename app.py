@@ -702,7 +702,7 @@ for character in CHARACTERS:
 
 # Make our Client
 client = anthropic.Anthropic()
-MODEL = "claude-3-5-sonnet-20241022"
+MODEL = "claude-sonnet-4-5"
 
 
 def clean_messages(name):
@@ -725,7 +725,8 @@ def choose_respondent():
         f"Here are some descriptions of each of them: \n- {descriptions}\n"
         "- User: A human who created this chat room.\n\n"
         "Answer with only one word: the name of the person to speak next. This could be the User or any other character in the list. Be sure to give the User opportunities to participate. Do not add any extra commentary. If you are unsure, it is ok to pick one of the participants at random to keep the conversation flowing.\n"
-        "Respond with only the name."
+        "Be sure not to pick the same person to speak twice in a row. Each turn should be a new person, either one of the named characters or the User.\n"
+        "Respond with only the name of the next person to speak. Nothing else. They will reply on their own."
     )
 
     message = client.messages.create(
@@ -734,7 +735,7 @@ def choose_respondent():
         system=system_prompt,
         messages=clean_messages("referree"),
     )
-    print(message.content[0].text)
+    print(message)
     return message.content[0].text
 
 
@@ -747,7 +748,8 @@ def respond(name):
         messages=clean_messages(name),
     )
     print("Done")
-    return message.content[0].text
+    print(f"Content: {message}")
+    return message.content[0].text if message.content else None
 
 
 # --- Function to simulate sending messages to a backend system ---
@@ -756,7 +758,10 @@ def send_messages_to_backend():
     if name not in SYSTEM_PROMPTS:
         print("User's turn.")
         return []
-    return [{"role": name, "content": respond(name)}]
+    message = respond(name)
+    if not message:
+        return []
+    return [{"role": name, "content": message}]
 
 def do_new_turn():
     # Send message to backend and get responses
@@ -770,11 +775,8 @@ def do_new_turn():
     # Persist assistant responses
     save_chats()
 
-    # Trigger a single rerun to refresh the UI once
-    if hasattr(st, "rerun"):
-        st.rerun()
-    else:
-        st.experimental_rerun()
+    if responses:
+        do_new_turn()
 
 # --- Streamlit UI ---
 render_sidebar()
@@ -799,5 +801,3 @@ if prompt := st.chat_input("Enter text here"):
         st.markdown(prompt)
 
     do_new_turn()
-
-    
