@@ -1,0 +1,283 @@
+:root {
+    --sidebar-bg: #f7f7f8;
+    --sidebar-border: #ececf1;
+    --sidebar-text: #0c0c10;
+    --sidebar-muted: #8e8ea0;
+}
+section[data-testid="stSidebar"] {
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
+    min-width: 288px;
+    width: 312px !important;
+    max-width: 312px !important;
+    flex: 0 0 312px !important;
+    opacity: 1 !important;
+    margin-left: 0 !important;
+    left: 0 !important;
+    position: relative !important;
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    box-shadow: none;
+    z-index: 2;
+    display: block !important;
+    pointer-events: auto !important;
+}
+div[data-testid="collapsedControl"] {
+    display: none !important;
+}
+section[data-testid="stSidebar"] > div:first-child {
+    height: 100vh;
+    opacity: 1 !important;
+    transition: none !important;
+    padding: 20px 12px 20px 12px;
+    overflow-y: auto;
+}
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
+    padding: 0;
+}
+.sidebar-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+.sidebar-top-row .icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 16px;
+    background: #ffffff;
+    border: 1px solid var(--sidebar-border);
+}
+.sidebar-top-row .icon-logo {
+    border: none;
+    background: none;
+}
+.sidebar-top-row .icon svg {
+    width: 24px;
+    height: 24px;
+}
+section[data-testid="stSidebar"] button[kind="secondary"] {
+    border: 1px solid var(--sidebar-border);
+    background: #ffffff;
+    color: var(--sidebar-text);
+    justify-content: flex-start;
+    gap: 12px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: none;
+    margin-bottom: 24px;
+}
+section[data-testid="stSidebar"] button[kind="secondary"]:hover {
+    background: #ececf1;
+    border-color: #dedee3;
+}
+section[data-testid="stSidebar"] button[kind="secondary"]::before {
+    content: '';
+    width: 18px;
+    height: 18px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    margin-right: 4px;
+    background-image: url('data:image/svg+xml;utf8,<svg stroke="%230c0c10" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M18.38 7.74 9.54 16.6l-3.9.98.99-3.92 8.83-8.85a2.37 2.37 0 1 1 3.35 3.35Z"/><path stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M13.97 5.02 18.98 10.03"/></svg>');
+}
+.sidebar-subheader {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--sidebar-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin: 0 0 12px 4px;
+}
+.sidebar-subheader .caret {
+    font-size: 0.75rem;
+    color: var(--sidebar-muted);
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 24px;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label {
+    border-radius: 12px;
+    padding: 10px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    position: relative;
+    color: var(--sidebar-text);
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
+    background: #ececf1;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
+    background: #e4e4eb;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+    border: 1px solid var(--sidebar-border);
+    margin-right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) > div:first-child {
+    opacity: 1;
+    border-color: #0c0c10;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) > div:first-child::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #0c0c10;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label::after {
+    content: '•••';
+    margin-left: auto;
+    color: var(--sidebar-muted);
+    font-size: 1.2rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label:hover::after,
+section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)::after {
+    opacity: 1;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label {
+    position: relative;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label .chat-row-icons {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label:hover .chat-row-icons {
+    opacity: 1;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label .chat-row-icons button {
+    background: none;
+    border: none;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--sidebar-muted);
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label .chat-row-icons button:hover {
+    background: #ececf1;
+    color: var(--sidebar-text);
+}
+section[data-testid="stSidebar"] .stButton>button {
+    padding: 6px 8px;
+    min-width: 34px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+.sidebar-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: #f1f1f3;
+}
+.sidebar-profile .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #fdb022, #f97316);
+    color: #ffffff;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+}
+.sidebar-profile .profile-copy {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+    flex: 1;
+}
+.sidebar-profile .profile-name {
+    font-weight: 600;
+    color: var(--sidebar-text);
+}
+.sidebar-profile .profile-plan {
+    font-size: 0.8rem;
+    color: var(--sidebar-muted);
+}
+.sidebar-profile .profile-caret {
+    font-size: 1.1rem;
+    color: var(--sidebar-muted);
+}
+.chat-context-menu {
+    position: fixed;
+    display: none;
+    background: #ffffff;
+    border: 1px solid var(--sidebar-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+    padding: 6px 0;
+    min-width: 180px;
+    z-index: 10000;
+}
+.chat-context-menu button {
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    color: var(--sidebar-text);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+}
+.chat-context-menu button:hover {
+    background: #f3f3f6;
+}
+.chat-context-menu button.rename {
+    font-weight: 500;
+}
+.chat-context-menu button.rename::before {
+    content: '';
+    width: 18px;
+    height: 18px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="%230c0c10" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.129-1.897l8.933-8.931z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125L16.875 4.5"/><path stroke-linecap="round" stroke-linejoin="round" d="M18 14v4.75A2.25 2.25 0 0115.75 21h-9.5A2.25 2.25 0 014 18.75v-9.5A2.25 2.25 0 016.25 7H11"/></svg>');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}

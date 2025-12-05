@@ -1,3 +1,5 @@
 .venv/
 .vscode/settings.json
 conversation.json
+.data/
+.env
